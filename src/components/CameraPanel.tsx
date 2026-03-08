@@ -84,9 +84,9 @@ const CameraPanel = ({ isTracking, onToggleTracking, onGestureChange, onFingerMo
     setIsLoading(true);
 
     try {
-      if (typeof window.Hands === 'undefined') {
-        // Wait for CDN scripts
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      if (typeof (window as any).Hands === 'undefined') {
+        // Wait for CDN scripts to load
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
       const hands = new Hands({
