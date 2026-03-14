@@ -4,8 +4,61 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Light mode (default) ── */
 @layer base {
   :root {
+    --background: 220 15% 96%;
+    --foreground: 220 20% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 12%;
+
+    --primary: 180 65% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 15% 90%;
+    --secondary-foreground: 220 20% 25%;
+
+    --muted: 220 15% 88%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 110 55% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 80%;
+    --input: 220 15% 80%;
+    --ring: 180 65% 35%;
+
+    --radius: 0.75rem;
+
+    --neon-cyan: 180 65% 35%;
+    --neon-magenta: 300 65% 45%;
+    --neon-green: 110 55% 38%;
+    --neon-yellow: 45 80% 40%;
+    --neon-orange: 25 80% 45%;
+    --neon-red: 0 70% 50%;
+    --neon-white: 220 20% 12%;
+
+    --sidebar-background: 220 15% 92%;
+    --sidebar-foreground: 220 20% 20%;
+    --sidebar-primary: 180 65% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 85%;
+    --sidebar-accent-foreground: 220 20% 25%;
+    --sidebar-border: 220 15% 78%;
+    --sidebar-ring: 180 65% 35%;
+  }
+}
+
+/* ── Dark mode ── */
+@layer base {
+  .dark {
     --background: 220 20% 7%;
     --foreground: 210 20% 92%;
 
@@ -33,8 +86,6 @@
     --border: 220 15% 20%;
     --input: 220 15% 20%;
     --ring: 180 100% 50%;
-
-    --radius: 0.75rem;
 
     --neon-cyan: 180 100% 50%;
     --neon-magenta: 300 100% 50%;

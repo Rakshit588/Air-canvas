@@ -14,6 +14,10 @@ interface WhiteboardCanvasProps {
 
 export interface WhiteboardHandle {
   saveAsImage: () => void;
+  exportAsPDF: () => void;
+  startRecording: () => void;
+  stopRecording: () => void;
+  isRecording: () => boolean;
 }
 
 const ERASER_RADIUS = 25;
@@ -26,6 +30,11 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
     const lastGestureRef = useRef<GestureType>('none');
     const cursorRef = useRef<Point | null>(null);
 
+    // Recording
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const recordedChunksRef = useRef<Blob[]>([]);
+    const recordingRef = useRef(false);
+
     useImperativeHandle(ref, () => ({
       saveAsImage: () => {
         const canvas = canvasRef.current;
@@ -35,6 +44,82 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
         link.href = canvas.toDataURL('image/png');
         link.click();
       },
+
+      exportAsPDF: () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const dataUrl = canvas.toDataURL('image/png');
+        const win = window.open('', '_blank');
+        if (!win) return;
+        win.document.write(`
+          <!doctype html>
+          <html>
+            <head>
+              <title>GestureBoard Notes — ${new Date().toLocaleDateString()}</title>
+              <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+                h2 { font-family: monospace; font-size: 14px; color: #555; margin-bottom: 12px; }
+                img { max-width: 100%; border: 1px solid #ccc; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+                @media print { button { display: none !important; } }
+              </style>
+            </head>
+            <body>
+              <h2>GestureBoard — Lecture Notes &nbsp;|&nbsp; ${new Date().toLocaleString()}</h2>
+              <img src="${dataUrl}" />
+              <br/>
+              <button onclick="window.print()" style="margin-top:16px;padding:8px 20px;font-family:monospace;cursor:pointer;">
+                Save as PDF
+              </button>
+              <script>setTimeout(() => window.print(), 300);<\/script>
+            </body>
+          </html>
+        `);
+        win.document.close();
+      },
+
+      startRecording: () => {
+        const canvas = canvasRef.current;
+        if (!canvas || recordingRef.current) return;
+        try {
+          const stream = (canvas as any).captureStream(30) as MediaStream;
+          const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+            ? 'video/webm;codecs=vp9'
+            : 'video/webm';
+          const recorder = new MediaRecorder(stream, { mimeType });
+          recordedChunksRef.current = [];
+
+          recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunksRef.current.push(e.data);
+          };
+
+          recorder.onstop = () => {
+            const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.download = `gestureboard-lecture-${Date.now()}.webm`;
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+            recordedChunksRef.current = [];
+          };
+
+          recorder.start(100);
+          mediaRecorderRef.current = recorder;
+          recordingRef.current = true;
+        } catch (err) {
+          console.error('Failed to start recording:', err);
+        }
+      },
+
+      stopRecording: () => {
+        if (!recordingRef.current || !mediaRecorderRef.current) return;
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current = null;
+        recordingRef.current = false;
+      },
+
+      isRecording: () => recordingRef.current,
     }));
 
     const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: Stroke) => {
@@ -67,7 +152,6 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
         ctx.save();
 
         if (gesture === 'erase') {
-          // Eraser: hollow circle with crosshair
           ctx.beginPath();
           ctx.arc(point.x, point.y, ERASER_RADIUS, 0, Math.PI * 2);
           ctx.strokeStyle = 'hsl(0, 100%, 60%)';
@@ -75,8 +159,6 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
           ctx.shadowBlur = 10;
           ctx.shadowColor = 'hsl(0, 100%, 60%)';
           ctx.stroke();
-
-          // Crosshair
           ctx.shadowBlur = 0;
           ctx.lineWidth = 1;
           ctx.beginPath();
@@ -86,17 +168,15 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
           ctx.lineTo(point.x, point.y + ERASER_RADIUS / 2);
           ctx.stroke();
         } else {
-          // Draw cursor: filled dot
+          const dotRadius = Math.max(brushSize / 2, 4);
           ctx.beginPath();
-          ctx.arc(point.x, point.y, Math.max(brushSize / 2, 4), 0, Math.PI * 2);
+          ctx.arc(point.x, point.y, dotRadius, 0, Math.PI * 2);
           ctx.fillStyle = currentColor;
           ctx.shadowBlur = 15;
           ctx.shadowColor = currentColor;
           ctx.fill();
-
-          // Outer ring
           ctx.beginPath();
-          ctx.arc(point.x, point.y, Math.max(brushSize / 2, 4) + 4, 0, Math.PI * 2);
+          ctx.arc(point.x, point.y, dotRadius + 4, 0, Math.PI * 2);
           ctx.strokeStyle = currentColor;
           ctx.lineWidth = 1;
           ctx.globalAlpha = 0.4;
@@ -116,11 +196,9 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Background
       ctx.fillStyle = 'hsl(220, 20%, 7%)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Grid
       ctx.strokeStyle = 'hsl(220, 15%, 12%)';
       ctx.lineWidth = 0.5;
       const gridSize = 40;
@@ -137,10 +215,8 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
         ctx.stroke();
       }
 
-      // Committed strokes
       strokes.forEach((stroke) => drawStroke(ctx, stroke));
 
-      // Current in-progress stroke
       if (currentStrokeRef.current.length > 1) {
         drawStroke(ctx, {
           points: currentStrokeRef.current,
@@ -149,13 +225,11 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
         });
       }
 
-      // Cursor
       if (cursorRef.current) {
         drawCursor(ctx, cursorRef.current);
       }
     }, [strokes, currentColor, brushSize, drawStroke, drawCursor]);
 
-    // Handle finger position updates
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas || !fingerPosition) {
@@ -213,12 +287,10 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
       render();
     }, [fingerPosition, gesture, currentColor, brushSize, onStrokeComplete, onErase, render]);
 
-    // Re-render when strokes change (undo/clear)
     useEffect(() => {
       render();
     }, [strokes, render]);
 
-    // Handle canvas resize
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;

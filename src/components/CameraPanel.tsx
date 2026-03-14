@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { classifyGesture, GestureType, GESTURE_LABELS, GESTURE_COLORS } from '@/lib/gestureClassifier';
 import { StrokeSmoother, Point } from '@/lib/strokeSmoother';
+import { LandmarkSmoother } from '@/lib/landmarkSmoother';
+import GestureVisualizer from '@/components/GestureVisualizer';
 import { Video, VideoOff, Loader2 } from 'lucide-react';
+
+interface Landmark { x: number; y: number; z: number; }
 
 interface CameraPanelProps {
   isTracking: boolean;
@@ -10,14 +14,22 @@ interface CameraPanelProps {
   onFingerMove: (point: Point | null) => void;
 }
 
+const TARGET_FPS = 30;
+const FRAME_MS = 1000 / TARGET_FPS;
+
 const CameraPanel = ({ isTracking, onToggleTracking, onGestureChange, onFingerMove }: CameraPanelProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handsRef = useRef<Hands | null>(null);
   const cameraRef = useRef<Camera | null>(null);
-  const smootherRef = useRef(new StrokeSmoother(4));
+  const fingerSmootherRef = useRef(new StrokeSmoother(4));
+  const landmarkSmootherRef = useRef(new LandmarkSmoother(0.5));
+  const lastFrameTimeRef = useRef(0);
+
   const [isLoading, setIsLoading] = useState(false);
   const [currentGesture, setCurrentGesture] = useState<GestureType>('none');
+  const [landmarks, setLandmarks] = useState<Landmark[] | null>(null);
+  const [canvasDims, setCanvasDims] = useState({ width: 0, height: 0 });
 
   const handleResults = useCallback((results: HandResults) => {
     const canvas = canvasRef.current;
@@ -27,55 +39,51 @@ const CameraPanel = ({ isTracking, onToggleTracking, onGestureChange, onFingerMo
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    const w = video.videoWidth || 640;
+    const h = video.videoHeight || 480;
 
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      setCanvasDims({ width: w, height: h });
+    }
+
+    // Draw mirrored video only
     ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw mirrored video
-    ctx.translate(canvas.width, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.translate(w, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(results.image, 0, 0, w, h);
     ctx.restore();
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-      const landmarks = results.multiHandLandmarks[0];
+      const rawLandmarks = results.multiHandLandmarks[0];
+      const smoothed = landmarkSmootherRef.current.smooth(rawLandmarks);
 
-      // Draw landmarks (mirrored)
-      ctx.save();
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
+      setLandmarks(smoothed);
 
-      if (typeof drawConnectors === 'function' && typeof HAND_CONNECTIONS !== 'undefined') {
-        drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: 'hsl(180, 100%, 50%)', lineWidth: 2 });
-      }
-      if (typeof drawLandmarks === 'function') {
-        drawLandmarks(ctx, landmarks, { color: 'hsl(300, 100%, 50%)', lineWidth: 1, radius: 3 });
-      }
-      ctx.restore();
-
-      const gesture = classifyGesture(landmarks);
+      const gesture = classifyGesture(smoothed);
       setCurrentGesture(gesture);
       onGestureChange(gesture);
 
-      // Get index finger tip position (mirrored)
-      const indexTip = landmarks[8];
+      const indexTip = smoothed[8];
       if (gesture === 'draw' || gesture === 'erase') {
-        const smoothed = smootherRef.current.smooth({
-          x: 1 - indexTip.x, // mirror
+        const smoothedPt = fingerSmootherRef.current.smooth({
+          x: 1 - indexTip.x,
           y: indexTip.y,
         });
-        onFingerMove(smoothed);
+        onFingerMove(smoothedPt);
       } else {
-        smootherRef.current.reset();
+        fingerSmootherRef.current.reset();
         onFingerMove(null);
       }
     } else {
+      setLandmarks(null);
+      landmarkSmootherRef.current.reset();
       setCurrentGesture('none');
       onGestureChange('none');
       onFingerMove(null);
-      smootherRef.current.reset();
+      fingerSmootherRef.current.reset();
     }
   }, [onGestureChange, onFingerMove]);
 
@@ -85,8 +93,7 @@ const CameraPanel = ({ isTracking, onToggleTracking, onGestureChange, onFingerMo
 
     try {
       if (typeof (window as any).Hands === 'undefined') {
-        // Wait for CDN scripts to load
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
       const hands = new Hands({
@@ -105,6 +112,11 @@ const CameraPanel = ({ isTracking, onToggleTracking, onGestureChange, onFingerMo
 
       const camera = new Camera(videoRef.current, {
         onFrame: async () => {
+          // Frame throttling: skip frames exceeding TARGET_FPS
+          const now = performance.now();
+          if (now - lastFrameTimeRef.current < FRAME_MS) return;
+          lastFrameTimeRef.current = now;
+
           if (handsRef.current && videoRef.current) {
             await handsRef.current.send({ image: videoRef.current });
           }
@@ -131,6 +143,8 @@ const CameraPanel = ({ isTracking, onToggleTracking, onGestureChange, onFingerMo
       handsRef.current.close();
       handsRef.current = null;
     }
+    setLandmarks(null);
+    landmarkSmootherRef.current.reset();
     setCurrentGesture('none');
     onGestureChange('none');
     onFingerMove(null);
@@ -145,38 +159,70 @@ const CameraPanel = ({ isTracking, onToggleTracking, onGestureChange, onFingerMo
     return () => stopTracking();
   }, [isTracking]);
 
+  const gestureColor = GESTURE_COLORS[currentGesture];
+
   return (
     <div className="flex flex-col gap-3">
       <div className="relative overflow-hidden rounded-lg border border-border bg-secondary aspect-[4/3]">
         <video ref={videoRef} className="hidden" playsInline />
         <canvas ref={canvasRef} className="w-full h-full object-cover" />
 
+        {/* Hand skeleton overlay */}
+        <GestureVisualizer
+          landmarks={landmarks}
+          gesture={currentGesture}
+          width={canvasDims.width}
+          height={canvasDims.height}
+        />
+
         {!isTracking && !isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-secondary">
             <VideoOff className="w-12 h-12 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Camera inactive</p>
+            <p className="text-sm text-muted-foreground font-mono">Camera inactive</p>
           </div>
         )}
 
         {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-secondary/80 backdrop-blur-sm">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
-            <p className="text-sm text-primary">Loading hand tracking model…</p>
+            <p className="text-sm text-primary font-mono">Loading hand tracking…</p>
           </div>
         )}
 
-        {/* Gesture badge */}
-        {isTracking && !isLoading && (
+        {/* Gesture mode label — bottom bar */}
+        {isTracking && !isLoading && currentGesture !== 'none' && (
           <div
-            className="absolute top-3 left-3 px-3 py-1.5 rounded-full text-xs font-mono font-semibold glass-panel"
-            style={{ color: GESTURE_COLORS[currentGesture] }}
+            className="absolute bottom-0 left-0 right-0 px-3 py-2 font-mono text-xs font-bold text-center tracking-widest uppercase backdrop-blur-sm"
+            style={{
+              backgroundColor: `${gestureColor}22`,
+              color: gestureColor,
+              borderTop: `1px solid ${gestureColor}44`,
+              textShadow: `0 0 8px ${gestureColor}`,
+            }}
           >
             {GESTURE_LABELS[currentGesture]}
+          </div>
+        )}
+
+        {/* Small top badge for hand detected indicator */}
+        {isTracking && !isLoading && (
+          <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded-full glass-panel">
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                backgroundColor: landmarks ? gestureColor : 'hsl(215, 15%, 45%)',
+                boxShadow: landmarks ? `0 0 6px ${gestureColor}` : 'none',
+              }}
+            />
+            <span className="text-[10px] font-mono text-muted-foreground">
+              {landmarks ? 'HAND' : 'NO HAND'}
+            </span>
           </div>
         )}
       </div>
 
       <button
+        data-testid="button-toggle-camera"
         onClick={onToggleTracking}
         disabled={isLoading}
         className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-mono text-sm font-semibold transition-all ${

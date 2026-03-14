@@ -1,4 +1,4 @@
-import { Undo2, Trash2, Download, Minus, Plus, Pipette } from 'lucide-react';
+import { Undo2, Trash2, Download, Minus, Plus, Pipette, FileText } from 'lucide-react';
 import { useState } from 'react';
 
 const NEON_COLORS = [
@@ -19,6 +19,7 @@ interface ToolbarPanelProps {
   onUndo: () => void;
   onClear: () => void;
   onSave: () => void;
+  onExportPDF: () => void;
   canUndo: boolean;
 }
 
@@ -30,6 +31,7 @@ const ToolbarPanel = ({
   onUndo,
   onClear,
   onSave,
+  onExportPDF,
   canUndo,
 }: ToolbarPanelProps) => {
   const [customHex, setCustomHex] = useState('');
@@ -69,8 +71,8 @@ const ToolbarPanel = ({
 
           {/* Native color picker */}
           <label
-            className="w-8 h-8 rounded-full border-2 border-border hover:border-muted-foreground flex items-center justify-center cursor-pointer transition-all overflow-hidden"
-            title="Custom color"
+            className="w-8 h-8 rounded-full border-2 border-border hover:border-muted-foreground flex items-center justify-center cursor-pointer transition-all"
+            title="Custom color picker"
           >
             <input
               type="color"
@@ -103,7 +105,7 @@ const ToolbarPanel = ({
           </button>
         </form>
 
-        {/* Current color preview */}
+        {/* Active color bar */}
         <div
           className="mt-2 h-1.5 w-full rounded-full"
           style={{ backgroundColor: currentColor, boxShadow: `0 0 8px ${currentColor}` }}
@@ -141,7 +143,7 @@ const ToolbarPanel = ({
           </button>
         </div>
 
-        {/* Brush preview dot */}
+        {/* Brush preview */}
         <div className="flex justify-center mt-2">
           <div
             className="rounded-full"
@@ -176,14 +178,28 @@ const ToolbarPanel = ({
           <Trash2 className="w-4 h-4" />
           Clear Board
         </button>
-        <button
-          data-testid="button-save"
-          onClick={onSave}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/20 transition-colors text-sm font-mono text-primary"
-        >
-          <Download className="w-4 h-4" />
-          Save Image
-        </button>
+
+        {/* Export row */}
+        <div className="flex gap-2">
+          <button
+            data-testid="button-save"
+            onClick={onSave}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/20 transition-colors text-sm font-mono text-primary"
+            title="Save as PNG image"
+          >
+            <Download className="w-4 h-4" />
+            PNG
+          </button>
+          <button
+            data-testid="button-export-pdf"
+            onClick={onExportPDF}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-accent/30 bg-accent/10 hover:bg-accent/20 transition-colors text-sm font-mono text-accent"
+            title="Export as PDF"
+          >
+            <FileText className="w-4 h-4" />
+            PDF
+          </button>
+        </div>
       </div>
 
       {/* Gesture Guide */}
@@ -191,34 +207,34 @@ const ToolbarPanel = ({
         <p className="text-xs font-mono text-muted-foreground mb-2 uppercase tracking-wider">Gesture Guide</p>
         <div className="space-y-1.5 text-xs">
           <div className="flex items-center gap-2">
-            <span className="text-base">☝️</span>
+            <span className="text-base leading-none">☝️</span>
             <span className="text-muted-foreground">Index finger</span>
             <span className="ml-auto font-mono text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">DRAW</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-base">✊</span>
+            <span className="text-base leading-none">✊</span>
             <span className="text-muted-foreground">Closed fist</span>
             <span className="ml-auto font-mono text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive border border-destructive/20">ERASE</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-base">✌️</span>
+            <span className="text-base leading-none">✌️</span>
             <span className="text-muted-foreground">Two fingers</span>
-            <span className="ml-auto font-mono text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">NAV</span>
+            <span className="ml-auto font-mono text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500 dark:text-yellow-400 border border-yellow-500/20">NAV</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-base">🖐️</span>
+            <span className="text-base leading-none">🖐️</span>
             <span className="text-muted-foreground">Open palm</span>
-            <span className="ml-auto font-mono text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20">PAUSE</span>
+            <span className="ml-auto font-mono text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">PAUSE</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-base">👍</span>
+            <span className="text-base leading-none">👍</span>
             <span className="text-muted-foreground">Thumbs up</span>
-            <span className="ml-auto font-mono text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20">CLEAR</span>
+            <span className="ml-auto font-mono text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 dark:text-orange-400 border border-orange-500/20">CLEAR</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-base">🖖</span>
+            <span className="text-base leading-none">🖖</span>
             <span className="text-muted-foreground">4 fingers</span>
-            <span className="ml-auto font-mono text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">SAVE</span>
+            <span className="ml-auto font-mono text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">SAVE</span>
           </div>
         </div>
       </div>
