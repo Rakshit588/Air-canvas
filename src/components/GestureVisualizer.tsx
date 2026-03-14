@@ -84,8 +84,7 @@ const GestureVisualizer = ({ landmarks, gesture, width, height }: GestureVisuali
     <canvas
       ref={canvasRef}
       data-testid="gesture-visualizer"
-      className="absolute inset-0 w-full h-full pointer-events-none"
-      style={{ mixBlendMode: 'screen' }}
+      className="absolute inset-0 w-full h-full pointer-events-none opacity-90"
     />
   );
 };

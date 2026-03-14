@@ -12,10 +12,26 @@ const ThemeContext = createContext<ThemeContextValue>({
   toggleTheme: () => {},
 });
 
+function readStoredTheme(): Theme {
+  try {
+    const stored = localStorage.getItem('gestureboard-theme');
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch {
+    // localStorage unavailable in sandboxed iframe — fall through
+  }
+  return 'dark';
+}
+
+function writeStoredTheme(theme: Theme) {
+  try {
+    localStorage.setItem('gestureboard-theme', theme);
+  } catch {
+    // ignore
+  }
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    return (localStorage.getItem('gestureboard-theme') as Theme) ?? 'dark';
-  });
+  const [theme, setTheme] = useState<Theme>(readStoredTheme);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -24,7 +40,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('gestureboard-theme', theme);
+    writeStoredTheme(theme);
   }, [theme]);
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
