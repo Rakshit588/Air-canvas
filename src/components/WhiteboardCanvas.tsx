@@ -16,6 +16,8 @@ export interface WhiteboardHandle {
   saveAsImage: () => void;
 }
 
+const ERASER_RADIUS = 25;
+
 const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
   ({ strokes, currentColor, brushSize, gesture, fingerPosition, onStrokeComplete, onErase }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -43,7 +45,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
       ctx.lineWidth = stroke.width;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = Math.min(stroke.width * 4, 20);
       ctx.shadowColor = stroke.color;
 
       ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
@@ -58,6 +60,55 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
       ctx.shadowBlur = 0;
     }, []);
 
+    const drawCursor = useCallback(
+      (ctx: CanvasRenderingContext2D, point: Point) => {
+        if (gesture === 'pause' || gesture === 'none' || gesture === 'clear' || gesture === 'save') return;
+
+        ctx.save();
+
+        if (gesture === 'erase') {
+          // Eraser: hollow circle with crosshair
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, ERASER_RADIUS, 0, Math.PI * 2);
+          ctx.strokeStyle = 'hsl(0, 100%, 60%)';
+          ctx.lineWidth = 2;
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = 'hsl(0, 100%, 60%)';
+          ctx.stroke();
+
+          // Crosshair
+          ctx.shadowBlur = 0;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(point.x - ERASER_RADIUS / 2, point.y);
+          ctx.lineTo(point.x + ERASER_RADIUS / 2, point.y);
+          ctx.moveTo(point.x, point.y - ERASER_RADIUS / 2);
+          ctx.lineTo(point.x, point.y + ERASER_RADIUS / 2);
+          ctx.stroke();
+        } else {
+          // Draw cursor: filled dot
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, Math.max(brushSize / 2, 4), 0, Math.PI * 2);
+          ctx.fillStyle = currentColor;
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = currentColor;
+          ctx.fill();
+
+          // Outer ring
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, Math.max(brushSize / 2, 4) + 4, 0, Math.PI * 2);
+          ctx.strokeStyle = currentColor;
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = 0.4;
+          ctx.shadowBlur = 0;
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      },
+      [gesture, currentColor, brushSize]
+    );
+
     const render = useCallback(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -65,11 +116,11 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Clear
+      // Background
       ctx.fillStyle = 'hsl(220, 20%, 7%)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw grid
+      // Grid
       ctx.strokeStyle = 'hsl(220, 15%, 12%)';
       ctx.lineWidth = 0.5;
       const gridSize = 40;
@@ -86,10 +137,10 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
         ctx.stroke();
       }
 
-      // Draw committed strokes
-      strokes.forEach(stroke => drawStroke(ctx, stroke));
+      // Committed strokes
+      strokes.forEach((stroke) => drawStroke(ctx, stroke));
 
-      // Draw current stroke
+      // Current in-progress stroke
       if (currentStrokeRef.current.length > 1) {
         drawStroke(ctx, {
           points: currentStrokeRef.current,
@@ -98,25 +149,16 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
         });
       }
 
-      // Draw cursor
-      if (cursorRef.current && gesture !== 'pause' && gesture !== 'none') {
-        ctx.beginPath();
-        const radius = gesture === 'erase' ? 20 : 6;
-        ctx.arc(cursorRef.current.x, cursorRef.current.y, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = gesture === 'erase' ? 'hsl(0, 100%, 60%)' : currentColor;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = gesture === 'erase' ? 'hsl(0, 100%, 60%)' : currentColor;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+      // Cursor
+      if (cursorRef.current) {
+        drawCursor(ctx, cursorRef.current);
       }
-    }, [strokes, currentColor, brushSize, gesture, drawStroke]);
+    }, [strokes, currentColor, brushSize, drawStroke, drawCursor]);
 
     // Handle finger position updates
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas || !fingerPosition) {
-        // Finger lost — complete stroke if drawing
         if (isDrawingRef.current && currentStrokeRef.current.length > 1) {
           onStrokeComplete({
             points: [...currentStrokeRef.current],
@@ -146,7 +188,6 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
         }
       } else if (gesture === 'erase') {
         onErase(canvasPoint);
-        // Complete any in-progress stroke
         if (isDrawingRef.current && currentStrokeRef.current.length > 1) {
           onStrokeComplete({
             points: [...currentStrokeRef.current],
@@ -157,7 +198,6 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
         currentStrokeRef.current = [];
         isDrawingRef.current = false;
       } else {
-        // Gesture changed away from draw — complete stroke
         if (isDrawingRef.current && currentStrokeRef.current.length > 1) {
           onStrokeComplete({
             points: [...currentStrokeRef.current],
@@ -185,13 +225,6 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
 
       const resizeObserver = new ResizeObserver(() => {
         const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * window.devicePixelRatio;
-        canvas.height = rect.height * window.devicePixelRatio;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-        }
-        // Reset canvas dimensions for drawing (CSS pixels)
         canvas.width = rect.width;
         canvas.height = rect.height;
         render();
@@ -204,6 +237,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardHandle, WhiteboardCanvasProps>(
     return (
       <canvas
         ref={canvasRef}
+        data-testid="whiteboard-canvas"
         className="w-full h-full rounded-lg border border-border cursor-crosshair"
       />
     );

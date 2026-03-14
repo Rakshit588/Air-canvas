@@ -1,4 +1,4 @@
-export type GestureType = 'draw' | 'erase' | 'navigate' | 'pause' | 'none';
+export type GestureType = 'draw' | 'erase' | 'navigate' | 'pause' | 'clear' | 'save' | 'none';
 
 interface Landmark {
   x: number;
@@ -11,8 +11,16 @@ function isFingerExtended(landmarks: Landmark[], tip: number, pip: number): bool
 }
 
 function isThumbExtended(landmarks: Landmark[]): boolean {
-  // Check if thumb tip is far from palm center
   return Math.abs(landmarks[4].x - landmarks[2].x) > Math.abs(landmarks[3].x - landmarks[2].x) * 0.8;
+}
+
+function isThumbUp(landmarks: Landmark[]): boolean {
+  const thumbExtended = isThumbExtended(landmarks);
+  const indexCurled = !isFingerExtended(landmarks, 8, 6);
+  const middleCurled = !isFingerExtended(landmarks, 12, 10);
+  const ringCurled = !isFingerExtended(landmarks, 16, 14);
+  const pinkyCurled = !isFingerExtended(landmarks, 20, 18);
+  return thumbExtended && indexCurled && middleCurled && ringCurled && pinkyCurled;
 }
 
 export function classifyGesture(landmarks: Landmark[]): GestureType {
@@ -26,8 +34,14 @@ export function classifyGesture(landmarks: Landmark[]): GestureType {
 
   const extendedCount = [indexUp, middleUp, ringUp, pinkyUp, thumbUp].filter(Boolean).length;
 
-  // Open palm → pause
+  // Thumbs up → clear board
+  if (isThumbUp(landmarks)) return 'clear';
+
+  // Open palm (4+ fingers) → pause
   if (extendedCount >= 4) return 'pause';
+
+  // Four fingers (index+middle+ring+pinky, no thumb) → save
+  if (indexUp && middleUp && ringUp && pinkyUp && !thumbUp) return 'save';
 
   // Fist → erase
   if (extendedCount === 0) return 'erase';
@@ -46,6 +60,8 @@ export const GESTURE_LABELS: Record<GestureType, string> = {
   erase: '🧹 Erasing',
   navigate: '🖱️ Navigate',
   pause: '✋ Paused',
+  clear: '👍 Clear Board',
+  save: '🖖 Save Notes',
   none: '—',
 };
 
@@ -54,5 +70,7 @@ export const GESTURE_COLORS: Record<GestureType, string> = {
   erase: 'hsl(0, 100%, 60%)',
   navigate: 'hsl(60, 100%, 50%)',
   pause: 'hsl(110, 100%, 55%)',
+  clear: 'hsl(25, 100%, 50%)',
+  save: 'hsl(300, 100%, 60%)',
   none: 'hsl(215, 15%, 55%)',
 };

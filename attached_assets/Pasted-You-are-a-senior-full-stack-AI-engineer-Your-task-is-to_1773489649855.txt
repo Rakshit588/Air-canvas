@@ -1,0 +1,425 @@
+You are a senior full-stack AI engineer.
+
+Your task is to build and improve my existing project called:
+
+GESTUREBOARD — AIR WRITING FOR EDUCATION
+
+IMPORTANT RULES
+
+1. Do NOT rewrite the entire project from scratch.
+2. Analyze the existing repository structure.
+3. Keep the current frontend and MediaPipe integration.
+4. Extend and improve the project with new features.
+5. Maintain clean and modular architecture.
+6. Provide full working code.
+
+--------------------------------------------------
+
+EXISTING PROJECT DESCRIPTION
+
+The current project is a React + TypeScript application that uses MediaPipe Hands to track hand gestures and convert finger movement into drawing on a virtual whiteboard.
+
+The index.html loads:
+
+- Google Fonts (Space Grotesk, Inter)
+- MediaPipe camera_utils
+- MediaPipe hands
+
+The application renders inside a React root element.
+
+The current system works like:
+
+Camera → MediaPipe Hands → Finger Landmarks → Canvas Drawing
+
+The project already supports:
+
+- camera input
+- hand tracking
+- drawing on canvas
+
+--------------------------------------------------
+
+PROJECT GOAL
+
+Transform this project into a full AI-powered gesture-controlled smart teaching board where teachers can:
+
+• write in air using gestures  
+• control board with hand commands  
+• solve math automatically  
+• save lecture notes  
+• record lectures  
+• use AI models for gesture recognition  
+
+--------------------------------------------------
+
+TECH STACK
+
+Frontend
+React
+TypeScript
+TailwindCSS
+HTML5 Canvas
+MediaPipe Hands
+
+Backend
+Python FastAPI
+
+Machine Learning
+Scikit-learn
+TensorFlow (optional)
+OpenCV
+
+Deployment ready structure.
+
+--------------------------------------------------
+
+IMPROVED PROJECT STRUCTURE
+
+gestureboard/
+
+frontend/
+src/
+
+components/
+Toolbar.tsx
+CanvasBoard.tsx
+CameraFeed.tsx
+GestureController.tsx
+GestureVisualizer.tsx
+
+pages/
+Whiteboard.tsx
+
+utils/
+gestureCommands.ts
+smoothing.ts
+api.ts
+
+hooks/
+useHandTracking.ts
+
+models/
+gestureClassifier.ts
+
+styles/
+globals.css
+
+index.html
+main.tsx
+
+--------------------------------------------------
+
+backend/
+
+main.py
+
+routes/
+math_solver.py
+save_notes.py
+lecture_record.py
+gesture_predict.py
+
+models/
+gesture_model.pkl
+train_model.py
+
+utils/
+image_processing.py
+
+requirements.txt
+
+--------------------------------------------------
+
+FEATURE 1 — GESTURE COMMAND SYSTEM
+
+Implement gesture recognition using MediaPipe hand landmarks.
+
+Commands:
+
+Index finger up → DRAW  
+Two fingers → ERASER  
+Open palm → STOP DRAWING  
+Thumb up → CLEAR BOARD  
+Fist → CHANGE COLOR  
+Three fingers → NEXT SLIDE  
+Four fingers → SAVE NOTES  
+
+File:
+
+src/utils/gestureCommands.ts
+
+--------------------------------------------------
+
+FEATURE 2 — SMOOTH AIR WRITING
+
+Implement line smoothing for handwriting.
+
+Use moving average or interpolation between points.
+
+File:
+
+src/utils/smoothing.ts
+
+This will make air writing look natural.
+
+--------------------------------------------------
+
+FEATURE 3 — MODERN TOOLBAR UI
+
+Create a floating toolbar with:
+
+• color picker  
+• eraser  
+• clear board  
+• undo  
+• save notes  
+• start recording  
+• toggle camera  
+
+File:
+
+src/components/Toolbar.tsx
+
+Use:
+
+rounded corners  
+soft shadows  
+modern glass UI  
+dark mode support  
+
+--------------------------------------------------
+
+FEATURE 4 — WHITEBOARD LAYOUT
+
+Create a split screen layout.
+
+Left side → Camera feed  
+Right side → Drawing canvas  
+
+Responsive grid layout.
+
+File:
+
+src/pages/Whiteboard.tsx
+
+--------------------------------------------------
+
+FEATURE 5 — SAVE NOTES
+
+Allow saving lecture drawings.
+
+Export formats:
+
+• PNG  
+• JSON  
+
+Backend endpoint:
+
+POST /notes/save
+
+File:
+
+backend/routes/save_notes.py
+
+--------------------------------------------------
+
+FEATURE 6 — AI MATH SOLVER
+
+Allow solving handwritten equations.
+
+Example:
+
+Teacher writes:
+
+2x + 5 = 15
+
+Backend should process equation and solve using sympy.
+
+API endpoint:
+
+POST /math/solve
+
+File:
+
+backend/routes/math_solver.py
+
+--------------------------------------------------
+
+FEATURE 7 — LECTURE RECORDING
+
+Allow recording:
+
+• camera feed  
+• drawing canvas  
+
+Export as:
+
+lecture.mp4
+
+API endpoint:
+
+GET /record/start
+
+File:
+
+backend/routes/lecture_record.py
+
+--------------------------------------------------
+
+FEATURE 8 — MACHINE LEARNING GESTURE MODEL
+
+Train ML classifier using hand landmarks.
+
+Dataset:
+
+21 landmarks from MediaPipe.
+
+Use:
+
+RandomForestClassifier.
+
+Output classes:
+
+draw
+erase
+clear
+stop
+change_color
+next_slide
+
+Training script:
+
+backend/models/train_model.py
+
+Save model:
+
+gesture_model.pkl
+
+Prediction API:
+
+POST /gesture/predict
+
+File:
+
+backend/routes/gesture_predict.py
+
+--------------------------------------------------
+
+FEATURE 9 — FRONTEND API CLIENT
+
+Create API helper functions.
+
+File:
+
+src/utils/api.ts
+
+Functions:
+
+solveMath()
+saveNotes()
+startRecording()
+predictGesture()
+
+--------------------------------------------------
+
+FEATURE 10 — PERFORMANCE OPTIMIZATION
+
+Improve camera performance.
+
+Use:
+
+requestAnimationFrame  
+frame throttling  
+landmark smoothing  
+
+--------------------------------------------------
+
+FEATURE 11 — VISUAL FEEDBACK
+
+Add UI feedback for gestures.
+
+Example:
+
+When gesture detected show small label:
+
+"DRAW MODE"
+"ERASER MODE"
+"CLEAR BOARD"
+
+--------------------------------------------------
+
+FEATURE 12 — HAND LANDMARK VISUALIZER
+
+Display skeleton overlay on camera feed.
+
+File:
+
+GestureVisualizer.tsx
+
+--------------------------------------------------
+
+FEATURE 13 — EXPORT LECTURE
+
+Allow exporting full lecture session.
+
+Formats:
+
+• PDF notes  
+• MP4 recording  
+
+--------------------------------------------------
+
+FEATURE 14 — DARK MODE
+
+Add dark/light theme toggle.
+
+--------------------------------------------------
+
+BACKEND SERVER
+
+Create FastAPI server.
+
+File:
+
+backend/main.py
+
+Include:
+
+CORS middleware  
+router registration  
+API documentation  
+
+--------------------------------------------------
+
+INSTALLATION INSTRUCTIONS
+
+Include commands:
+
+Frontend
+
+npm install
+npm run dev
+
+Backend
+
+pip install -r requirements.txt
+uvicorn main:app --reload
+
+--------------------------------------------------
+
+FINAL OUTPUT REQUIREMENTS
+
+Return:
+
+1. Complete folder structure
+2. All new files with code
+3. Any modified files clearly marked
+4. Backend API documentation
+5. ML training instructions
+6. Deployment instructions
+
+--------------------------------------------------
+
+DO NOT REMOVE EXISTING FUNCTIONALITY.
+
+ONLY EXTEND AND IMPROVE THE PROJECT.
